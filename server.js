@@ -79,7 +79,8 @@ wss.on('connection', (ws) => {
 
         case 'offer':
         case 'answer':
-        case 'ice-candidate': {
+        case 'ice-candidate':
+        case 'screen-stream': {
           // Forward WebRTC signaling to the other peer
           if (currentRoom && rooms.has(currentRoom)) {
             const room = rooms.get(currentRoom);

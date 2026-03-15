@@ -727,6 +727,7 @@
     let cameraOn = true;
     let micOn = true;
     let screenOn = false;
+    let remoteScreenStreamId = null; // ID stream-у екрану від хоста
 
     // ICE servers (STUN for NAT traversal)
     const iceServers = [
@@ -794,13 +795,15 @@
         `<span class="status-dot"></span>Кімната: ${roomId}`;
       document.getElementById('localLabel').textContent = myName;
 
-      // Show screen share button for host
+      // Тільки хост може ділитись екраном
       if (role === 'host') {
         document.getElementById('startScreenBtn').style.display = '';
         document.getElementById('screenPlaceholderText').textContent = 'Натисни "Транслювати екран" щоб почати';
+        document.getElementById('screenToggle').style.display = '';
       } else {
         document.getElementById('startScreenBtn').style.display = 'none';
-        document.getElementById('screenPlaceholderText').textContent = 'Очікування трансляції екрану...';
+        document.getElementById('screenPlaceholderText').textContent = 'Очікування трансляції...';
+        document.getElementById('screenToggle').style.display = 'none';
       }
 
       // Get webcam
@@ -876,17 +879,19 @@
             addChat(msg.from, msg.message, false);
             break;
 
+          case 'screen-stream':
+            remoteScreenStreamId = msg.streamId || null;
+            break;
+
           case 'peer-left':
             addSystemChat(`${msg.peerRole === 'host' ? 'Хост' : 'Гість'} вийшов`);
-            // Clean up remote video
+            remoteScreenStreamId = null;
             document.getElementById('remoteWebcam').srcObject = null;
             document.getElementById('remoteWebcam').style.display = 'none';
             document.getElementById('remoteCamPlaceholder').style.display = '';
-            if (myRole !== 'host') {
-              document.getElementById('screenVideo').srcObject = null;
-              document.getElementById('screenVideo').style.display = 'none';
-              document.getElementById('screenPlaceholder').style.display = '';
-            }
+            document.getElementById('screenVideo').srcObject = null;
+            document.getElementById('screenVideo').style.display = 'none';
+            document.getElementById('screenPlaceholder').style.display = '';
             if (pc) { pc.close(); pc = null; }
             break;
 
@@ -936,45 +941,34 @@
       };
 
       // Receive remote tracks
-      // Strategy: assign whole stream (video+audio) to the correct element.
-      // First video stream = webcam, second = screen share.
-      // Audio tracks are included automatically when we assign the stream object.
+      // Розрізняємо webcam vs screen за remoteScreenStreamId (надіслано через WS)
       const assignedStreamIds = new Set();
 
       pc.ontrack = (event) => {
         const stream = event.streams[0];
-        if (!stream) return;
+        if (!stream || assignedStreamIds.has(stream.id)) return;
 
         const track = event.track;
+        // Обробляємо тільки відео — аудіо включено в той самий stream об'єкт
+        if (track.kind !== 'video') return;
+
+        assignedStreamIds.add(stream.id);
+
         const remoteWebcam = document.getElementById('remoteWebcam');
         const screenVideo = document.getElementById('screenVideo');
 
-        if (track.kind === 'video') {
-          if (assignedStreamIds.has(stream.id)) return;
-          assignedStreamIds.add(stream.id);
-
-          if (!remoteWebcam.srcObject || remoteWebcam.srcObject.id === stream.id) {
-            remoteWebcam.srcObject = stream;
-            remoteWebcam.style.display = 'block';
-            document.getElementById('remoteCamPlaceholder').style.display = 'none';
-          } else {
-            // Screen share stream — includes video + system audio
-            screenVideo.srcObject = stream;
-            screenVideo.style.display = 'block';
-            document.getElementById('screenPlaceholder').style.display = 'none';
-            screenVideo.play().catch(() => {});
-          }
-        } else if (track.kind === 'audio') {
-          // Handle audio that may arrive before its video track (e.g. screen audio)
-          if (remoteWebcam.srcObject && remoteWebcam.srcObject.id === stream.id) {
-            // Webcam audio — already in remoteWebcam.srcObject stream ✓
-          } else if (!assignedStreamIds.has(stream.id)) {
-            // Screen share audio arrived before video — pre-assign stream
-            // Video track ontrack will overwrite srcObject with same stream
-            assignedStreamIds.add(stream.id);
-            screenVideo.srcObject = stream;
-            screenVideo.play().catch(() => {});
-          }
+        if (remoteScreenStreamId && stream.id === remoteScreenStreamId) {
+          // Це трансляція екрану від хоста
+          screenVideo.srcObject = stream;
+          screenVideo.muted = false;
+          screenVideo.style.display = 'block';
+          document.getElementById('screenPlaceholder').style.display = 'none';
+          screenVideo.play().catch(() => {});
+        } else {
+          // Це webcam (і хоста і гостя — завжди в бульбашку)
+          remoteWebcam.srcObject = stream;
+          remoteWebcam.style.display = 'block';
+          document.getElementById('remoteCamPlaceholder').style.display = 'none';
         }
       };
 
@@ -987,8 +981,9 @@
     // SCREEN SHARING
     // ========================
     async function toggleScreenShare() {
+      if (myRole !== 'host') return; // тільки хост
+
       if (screenOn) {
-        // Stop screen sharing
         if (screenStream) {
           screenStream.getTracks().forEach(t => t.stop());
           screenStream = null;
@@ -998,7 +993,10 @@
         document.getElementById('screenVideo').style.display = 'none';
         document.getElementById('screenVideo').srcObject = null;
         document.getElementById('screenPlaceholder').style.display = '';
-        // Renegotiate
+        // Повідомляємо гостя що трансляція зупинена
+        if (ws?.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'screen-stream', streamId: null }));
+        }
         if (pc && ws?.readyState === WebSocket.OPEN) {
           await renegotiate();
         }
@@ -1007,32 +1005,27 @@
 
       try {
         screenStream = await navigator.mediaDevices.getDisplayMedia({
-          video: {
-            cursor: 'always',
-            displaySurface: 'monitor'
-          },
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true
-          }
+          video: { cursor: 'always' },
+          audio: { echoCancellation: true, noiseSuppression: true }
         });
 
         screenOn = true;
         document.getElementById('screenToggle').classList.add('active');
 
-        // Show locally for host — mute locally to avoid echo (guest will hear it)
+        // Показуємо хосту локально (без звуку — щоб не чув двічі)
         const screenVideo = document.getElementById('screenVideo');
         screenVideo.srcObject = screenStream;
         screenVideo.muted = true;
         screenVideo.style.display = 'block';
         document.getElementById('screenPlaceholder').style.display = 'none';
 
-        // Handle stream end (user clicks "Stop sharing" in browser)
-        screenStream.getVideoTracks()[0].onended = () => {
-          toggleScreenShare();
-        };
+        // Повідомляємо гостя: ось ID stream-у екрану
+        if (ws?.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'screen-stream', streamId: screenStream.id }));
+        }
 
-        // Renegotiate to add screen tracks
+        screenStream.getVideoTracks()[0].onended = () => toggleScreenShare();
+
         if (pc && ws?.readyState === WebSocket.OPEN) {
           await renegotiate();
         }
