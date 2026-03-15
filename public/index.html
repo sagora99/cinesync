@@ -491,6 +491,34 @@
       position: fixed; inset: 0; z-index: 50;
     }
 
+    /* === QUOTE OVERLAY (landscape) === */
+    #quoteOverlay {
+      display: none;
+      position: absolute;
+      bottom: 64px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 18;
+      max-width: 72%;
+      text-align: center;
+      padding: 8px 22px;
+      border-radius: 20px;
+      background: rgba(0, 0, 0, 0.52);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      color: rgba(255, 255, 255, 0.93);
+      font-size: 0.88rem;
+      font-style: italic;
+      letter-spacing: 0.02em;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.8s ease;
+    }
+    #quoteOverlay.show { opacity: 1; }
+    @media (orientation: landscape) and (max-height: 600px) {
+      #quoteOverlay { display: block; }
+    }
+
     /* === RESPONSIVE (portrait mobile) === */
     @media (max-width: 768px) and (orientation: portrait) {
       .sidebar { width: 100%; max-height: 40vh; border-left: none; border-top: 1px solid var(--border); }
@@ -640,6 +668,7 @@
             </button>
           </div>
           <video id="screenVideo" autoplay playsinline style="display:none;"></video>
+          <div id="quoteOverlay"></div>
         </div>
 
         <!-- Sidebar: webcams + chat -->
@@ -907,36 +936,45 @@
       };
 
       // Receive remote tracks
+      // Strategy: assign whole stream (video+audio) to the correct element.
+      // First video stream = webcam, second = screen share.
+      // Audio tracks are included automatically when we assign the stream object.
+      const assignedStreamIds = new Set();
+
       pc.ontrack = (event) => {
         const stream = event.streams[0];
         if (!stream) return;
 
         const track = event.track;
-
-        // Determine if this is screen share or webcam
-        // Screen share streams have a video track from getDisplayMedia
-        // We differentiate by checking if we already have a webcam stream assigned
         const remoteWebcam = document.getElementById('remoteWebcam');
         const screenVideo = document.getElementById('screenVideo');
 
         if (track.kind === 'video') {
-          // First video stream = webcam, second = screen (or vice versa)
-          // We use stream IDs to differentiate
+          if (assignedStreamIds.has(stream.id)) return;
+          assignedStreamIds.add(stream.id);
+
           if (!remoteWebcam.srcObject || remoteWebcam.srcObject.id === stream.id) {
-            // This is the webcam stream
             remoteWebcam.srcObject = stream;
             remoteWebcam.style.display = 'block';
             document.getElementById('remoteCamPlaceholder').style.display = 'none';
           } else {
-            // This is a different stream — screen share
+            // Screen share stream — includes video + system audio
             screenVideo.srcObject = stream;
             screenVideo.style.display = 'block';
             document.getElementById('screenPlaceholder').style.display = 'none';
+            screenVideo.play().catch(() => {});
           }
-        }
-
-        if (track.kind === 'audio' && remoteWebcam.srcObject?.id === stream.id) {
-          // Audio comes with webcam stream — already handled
+        } else if (track.kind === 'audio') {
+          // Handle audio that may arrive before its video track (e.g. screen audio)
+          if (remoteWebcam.srcObject && remoteWebcam.srcObject.id === stream.id) {
+            // Webcam audio — already in remoteWebcam.srcObject stream ✓
+          } else if (!assignedStreamIds.has(stream.id)) {
+            // Screen share audio arrived before video — pre-assign stream
+            // Video track ontrack will overwrite srcObject with same stream
+            assignedStreamIds.add(stream.id);
+            screenVideo.srcObject = stream;
+            screenVideo.play().catch(() => {});
+          }
         }
       };
 
@@ -982,9 +1020,10 @@
         screenOn = true;
         document.getElementById('screenToggle').classList.add('active');
 
-        // Show locally for host
+        // Show locally for host — mute locally to avoid echo (guest will hear it)
         const screenVideo = document.getElementById('screenVideo');
         screenVideo.srcObject = screenStream;
+        screenVideo.muted = true;
         screenVideo.style.display = 'block';
         document.getElementById('screenPlaceholder').style.display = 'none';
 
@@ -1080,11 +1119,22 @@
     function addQuote() {
       const text = loveQuotes[quoteIndex % loveQuotes.length];
       quoteIndex++;
+
+      // Sidebar (portrait)
       const div = document.createElement('div');
       div.className = 'chat-msg quote';
       div.textContent = text;
       document.getElementById('chatMessages').appendChild(div);
       div.scrollIntoView({ behavior: 'smooth' });
+
+      // Overlay поверх відео (landscape)
+      const overlay = document.getElementById('quoteOverlay');
+      overlay.classList.remove('show');
+      void overlay.offsetWidth; // force reflow для анімації
+      overlay.textContent = text;
+      overlay.classList.add('show');
+      clearTimeout(overlay._hideTimer);
+      overlay._hideTimer = setTimeout(() => overlay.classList.remove('show'), 7000);
     }
 
     function addSystemChat(text) {
