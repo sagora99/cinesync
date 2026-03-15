@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CineSync — Дивитись разом</title>
+  <title>Мяукіно — Дивитись разом</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
   <style>
@@ -386,38 +386,17 @@
       text-align: center;
       align-self: center;
     }
-    .chat-input-area {
-      display: flex;
-      gap: 0.5rem;
-      padding: 0.75rem;
-      border-top: 1px solid var(--border);
+    .chat-msg.quote {
+      background: linear-gradient(135deg, rgba(232,67,147,0.12), rgba(108,92,231,0.12));
+      border: 1px solid rgba(232,67,147,0.2);
+      color: var(--text-dim);
+      font-size: 0.8rem;
+      font-style: italic;
+      align-self: center;
+      text-align: center;
+      max-width: 95%;
+      border-radius: 12px;
     }
-    .chat-input {
-      flex: 1;
-      font-family: var(--font-body);
-      font-size: 0.85rem;
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 0.6rem 0.75rem;
-      color: var(--text);
-      outline: none;
-      transition: border-color 0.2s;
-    }
-    .chat-input:focus { border-color: var(--accent); }
-    .chat-input::placeholder { color: var(--text-muted); }
-    .chat-send {
-      font-family: var(--font-body);
-      background: var(--accent);
-      border: none;
-      color: white;
-      padding: 0 0.85rem;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 1rem;
-      transition: opacity 0.2s;
-    }
-    .chat-send:hover { opacity: 0.85; }
 
     /* Bottom controls */
     .controls {
@@ -606,8 +585,8 @@
   <div class="app">
     <!-- LANDING -->
     <div class="landing" id="landing">
-      <div class="logo">CineSync</div>
-      <p class="tagline">Ваш спільний кінозал на двох</p>
+      <div class="logo">Мяукіно</div>
+      <p class="tagline">Наш з нею кінозал 🐾</p>
 
       <div class="landing-actions">
         <button class="btn btn-primary" onclick="createRoom()">
@@ -638,7 +617,7 @@
     <div class="room" id="room">
       <div class="topbar">
         <div class="topbar-left">
-          <span class="topbar-logo">CineSync</span>
+          <span class="topbar-logo">Мяукіно</span>
           <span class="room-badge" id="roomBadge"></span>
         </div>
         <div class="topbar-actions">
@@ -685,13 +664,8 @@
           </div>
 
           <div class="chat-area">
-            <div class="chat-header">Чат</div>
+            <div class="chat-header">💜 Для неї</div>
             <div class="chat-messages" id="chatMessages"></div>
-            <div class="chat-input-area">
-              <input class="chat-input" id="chatInput" placeholder="Напиши щось..."
-                     onkeydown="if(event.key==='Enter')sendChat()" />
-              <button class="chat-send" onclick="sendChat()">➤</button>
-            </div>
           </div>
         </div>
       </div>
@@ -815,6 +789,7 @@
       // Connect WebSocket
       connectWebSocket(roomId, role);
       addSystemChat('Ти приєднався до кімнати');
+      startQuotes();
     }
 
     // ========================
@@ -1070,21 +1045,44 @@
     }
 
     // ========================
-    // CHAT
+    // ЦИТАТИ
     // ========================
-    function sendChat() {
-      const input = document.getElementById('chatInput');
-      const msg = input.value.trim();
-      if (!msg || !ws) return;
-      ws.send(JSON.stringify({ type: 'chat', message: msg }));
-      addChat(myName, msg, true);
-      input.value = '';
+    const loveQuotes = [
+      '💜 Ти моя найкраща частина кожного дня',
+      '🐾 Дивлюсь на тебе і не можу надивитись',
+      '🌙 З тобою навіть тиша стає теплою',
+      '💜 Ти єдина, з ким я хочу дивитись фільми до ранку',
+      '🐾 Твій сміх — це мій найулюбленіший звук',
+      '✨ Я закоханий у тебе щодня по-новому',
+      '💜 Поряд з тобою мені не страшно нічого',
+      '🌙 Ти моя домашня пристань',
+      '🐾 Навіть мовчати з тобою — щастя',
+      '💜 Ти робиш моє серце м\'якшим',
+      '✨ Я думаю про тебе навіть коли дивлюсь у екран',
+      '🌙 З тобою найзвичайніший вечір стає особливим',
+      '🐾 Ти моя тепла котика 💜',
+      '💜 Кожна хвилина поряд з тобою — подарунок',
+      '✨ Ти — мій улюблений фільм, який я хочу дивитись вічно',
+      '🌙 Дякую що ти є, серйозно',
+      '🐾 Я люблю тебе більше ніж слова можуть вмістити',
+      '💜 Ти моє спокійне місце у цьому шаленому світі',
+    ];
+
+    let quoteIndex = 0;
+
+    function startQuotes() {
+      // Перша цитата одразу
+      addQuote();
+      // Потім кожні 2.5 хвилини
+      setInterval(addQuote, 2.5 * 60 * 1000);
     }
 
-    function addChat(from, message, isMine) {
+    function addQuote() {
+      const text = loveQuotes[quoteIndex % loveQuotes.length];
+      quoteIndex++;
       const div = document.createElement('div');
-      div.className = `chat-msg ${isMine ? 'mine' : 'theirs'}`;
-      div.textContent = message;
+      div.className = 'chat-msg quote';
+      div.textContent = text;
       document.getElementById('chatMessages').appendChild(div);
       div.scrollIntoView({ behavior: 'smooth' });
     }
