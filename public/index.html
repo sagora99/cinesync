@@ -512,12 +512,91 @@
       position: fixed; inset: 0; z-index: 50;
     }
 
-    /* === RESPONSIVE === */
-    @media (max-width: 768px) {
+    /* === RESPONSIVE (portrait mobile) === */
+    @media (max-width: 768px) and (orientation: portrait) {
       .sidebar { width: 100%; max-height: 40vh; border-left: none; border-top: 1px solid var(--border); }
       .theater { flex-direction: column; }
       .webcam-box { aspect-ratio: 16/9; }
       .logo { font-size: 2.5rem; }
+    }
+
+    /* === LANDSCAPE MOBILE — повний екран з вебками в куті === */
+    @media (orientation: landscape) and (max-height: 600px) {
+      .room.active {
+        position: relative;
+        overflow: hidden;
+      }
+
+      /* Топбар — тонкий прозорий оверлей зверху */
+      .topbar {
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        z-index: 20;
+        background: linear-gradient(to bottom, rgba(10,10,15,0.85) 0%, transparent 100%);
+        border-bottom: none;
+        padding: 0.4rem 1rem;
+        transition: opacity 0.3s;
+      }
+
+      /* Театр займає весь екран */
+      .theater {
+        position: absolute;
+        inset: 0;
+        height: 100vh;
+        height: 100dvh;
+      }
+
+      /* Контролі — тонка смуга знизу (прозора) */
+      .controls {
+        position: absolute;
+        bottom: 0; left: 0; right: 0;
+        z-index: 20;
+        background: linear-gradient(to top, rgba(10,10,15,0.85) 0%, transparent 100%);
+        border-top: none;
+        padding: 0.4rem;
+        gap: 0.5rem;
+      }
+
+      /* Сайдбар — floating в правому нижньому куті */
+      .sidebar {
+        position: absolute;
+        bottom: 52px;
+        right: 12px;
+        width: auto;
+        max-height: none;
+        background: transparent;
+        border: none;
+        border-left: none;
+        border-top: none;
+        z-index: 15;
+        flex-shrink: 0;
+      }
+
+      /* Ховаємо чат у landscape */
+      .chat-area { display: none; }
+
+      /* Вебкамери — маленькі бульбашки */
+      .webcams {
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .webcam-box {
+        width: 100px;
+        height: 75px;
+        border-radius: 10px;
+        aspect-ratio: unset;
+        border: 2px solid rgba(232, 67, 147, 0.55);
+        box-shadow: 0 4px 18px rgba(0,0,0,0.65);
+        overflow: hidden;
+      }
+
+      .webcam-label {
+        font-size: 0.6rem;
+        padding: 2px 5px;
+        bottom: 4px;
+        left: 4px;
+      }
     }
   </style>
 </head>
