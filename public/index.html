@@ -1,0 +1,1052 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CineSync — Дивитись разом</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg-deep: #0a0a0f;
+      --bg-surface: #12121a;
+      --bg-card: #1a1a26;
+      --accent: #e84393;
+      --accent-glow: rgba(232, 67, 147, 0.3);
+      --accent-soft: rgba(232, 67, 147, 0.1);
+      --text: #f0eef6;
+      --text-dim: #8a8699;
+      --text-muted: #5a5670;
+      --border: rgba(255, 255, 255, 0.06);
+      --success: #00d68f;
+      --warning: #ffaa00;
+      --radius: 12px;
+      --font-display: 'Playfair Display', Georgia, serif;
+      --font-body: 'Outfit', system-ui, sans-serif;
+    }
+
+    html, body { height: 100%; }
+
+    body {
+      font-family: var(--font-body);
+      background: var(--bg-deep);
+      color: var(--text);
+      overflow-x: hidden;
+    }
+
+    /* === AMBIENT BACKGROUND === */
+    .ambient {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      overflow: hidden;
+    }
+    .ambient::before {
+      content: '';
+      position: absolute;
+      width: 600px; height: 600px;
+      background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+      top: -200px; right: -100px;
+      animation: float 20s ease-in-out infinite;
+    }
+    .ambient::after {
+      content: '';
+      position: absolute;
+      width: 500px; height: 500px;
+      background: radial-gradient(circle, rgba(108, 92, 231, 0.15) 0%, transparent 70%);
+      bottom: -150px; left: -100px;
+      animation: float 25s ease-in-out infinite reverse;
+    }
+    @keyframes float {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      33% { transform: translate(30px, -30px) scale(1.1); }
+      66% { transform: translate(-20px, 20px) scale(0.95); }
+    }
+
+    /* === LAYOUT === */
+    .app { position: relative; z-index: 1; min-height: 100vh; }
+
+    /* === LANDING SCREEN === */
+    .landing {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 2rem;
+      text-align: center;
+    }
+    .logo {
+      font-family: var(--font-display);
+      font-size: 3.5rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.5rem;
+      background: linear-gradient(135deg, var(--text), var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .tagline {
+      font-size: 1.1rem;
+      color: var(--text-dim);
+      font-weight: 300;
+      margin-bottom: 3rem;
+      letter-spacing: 0.02em;
+    }
+    .landing-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      width: 100%;
+      max-width: 380px;
+    }
+
+    /* === BUTTONS === */
+    .btn {
+      font-family: var(--font-body);
+      font-size: 1rem;
+      font-weight: 500;
+      border: none;
+      border-radius: var(--radius);
+      padding: 1rem 1.5rem;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      overflow: hidden;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+      box-shadow: 0 4px 24px var(--accent-glow);
+    }
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px var(--accent-glow);
+    }
+    .btn-secondary {
+      background: var(--bg-card);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover {
+      background: rgba(255,255,255,0.08);
+      border-color: rgba(255,255,255,0.12);
+    }
+    .btn-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px; height: 44px;
+      border-radius: 50%;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 1.2rem;
+    }
+    .btn-icon:hover { background: rgba(255,255,255,0.1); }
+    .btn-icon.active { background: var(--accent); border-color: var(--accent); }
+    .btn-icon.danger { background: #e74c3c; border-color: #e74c3c; }
+
+    /* === INPUTS === */
+    .input-group {
+      display: flex;
+      gap: 0.5rem;
+    }
+    .input {
+      flex: 1;
+      font-family: var(--font-body);
+      font-size: 1rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 0.85rem 1rem;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .input:focus { border-color: var(--accent); }
+    .input::placeholder { color: var(--text-muted); }
+
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
+    .divider::before, .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* === ROOM SCREEN === */
+    .room { display: none; flex-direction: column; height: 100vh; }
+    .room.active { display: flex; }
+    .landing.hidden { display: none; }
+
+    /* Top bar */
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem 1.25rem;
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .topbar-logo {
+      font-family: var(--font-display);
+      font-size: 1.25rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--text), var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .room-badge {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      background: var(--bg-card);
+      padding: 0.25rem 0.65rem;
+      border-radius: 100px;
+      border: 1px solid var(--border);
+    }
+    .status-dot {
+      display: inline-block;
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--success);
+      margin-right: 0.4rem;
+      animation: pulse-dot 2s infinite;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+    .topbar-actions {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    /* Main content area */
+    .theater {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Screen sharing area */
+    .screen-area {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #000;
+      position: relative;
+    }
+    .screen-area video {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+    .screen-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.5rem;
+      color: var(--text-muted);
+    }
+    .screen-placeholder-icon {
+      font-size: 4rem;
+      opacity: 0.3;
+    }
+    .screen-placeholder p {
+      font-size: 1rem;
+      font-weight: 300;
+    }
+
+    /* Webcam sidebar */
+    .sidebar {
+      width: 280px;
+      background: var(--bg-surface);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+    .webcams {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .webcam-box {
+      position: relative;
+      aspect-ratio: 4/3;
+      background: var(--bg-deep);
+      overflow: hidden;
+    }
+    .webcam-box video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+    }
+    .webcam-label {
+      position: absolute;
+      bottom: 8px;
+      left: 8px;
+      font-size: 0.7rem;
+      font-weight: 500;
+      background: rgba(0,0,0,0.65);
+      color: white;
+      padding: 3px 8px;
+      border-radius: 6px;
+      backdrop-filter: blur(8px);
+    }
+    .webcam-placeholder {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+    }
+    .webcam-placeholder span:first-child {
+      font-size: 1.5rem;
+      opacity: 0.4;
+    }
+
+    /* Chat area */
+    .chat-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+    .chat-header {
+      padding: 0.75rem 1rem;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--text-dim);
+      border-bottom: 1px solid var(--border);
+      border-top: 1px solid var(--border);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .chat-messages::-webkit-scrollbar { width: 4px; }
+    .chat-messages::-webkit-scrollbar-track { background: transparent; }
+    .chat-messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+    .chat-msg {
+      font-size: 0.85rem;
+      line-height: 1.5;
+      padding: 0.5rem 0.75rem;
+      border-radius: 10px;
+      max-width: 90%;
+      word-break: break-word;
+    }
+    .chat-msg.mine {
+      background: var(--accent);
+      color: white;
+      align-self: flex-end;
+      border-bottom-right-radius: 3px;
+    }
+    .chat-msg.theirs {
+      background: var(--bg-card);
+      color: var(--text);
+      align-self: flex-start;
+      border-bottom-left-radius: 3px;
+    }
+    .chat-msg.system {
+      background: none;
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      text-align: center;
+      align-self: center;
+    }
+    .chat-input-area {
+      display: flex;
+      gap: 0.5rem;
+      padding: 0.75rem;
+      border-top: 1px solid var(--border);
+    }
+    .chat-input {
+      flex: 1;
+      font-family: var(--font-body);
+      font-size: 0.85rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.6rem 0.75rem;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .chat-input:focus { border-color: var(--accent); }
+    .chat-input::placeholder { color: var(--text-muted); }
+    .chat-send {
+      font-family: var(--font-body);
+      background: var(--accent);
+      border: none;
+      color: white;
+      padding: 0 0.85rem;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1rem;
+      transition: opacity 0.2s;
+    }
+    .chat-send:hover { opacity: 0.85; }
+
+    /* Bottom controls */
+    .controls {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75rem;
+      padding: 0.85rem;
+      background: var(--bg-surface);
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    /* === TOAST NOTIFICATIONS === */
+    .toast {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      z-index: 999;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 0.85rem 1.25rem;
+      color: var(--text);
+      font-size: 0.9rem;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      transform: translateX(120%);
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .toast.visible { transform: translateX(0); }
+
+    /* === COPY TOOLTIP === */
+    .copy-wrap {
+      position: relative;
+      display: inline-flex;
+    }
+    .copy-tooltip {
+      position: absolute;
+      top: -30px;
+      left: 50%;
+      transform: translateX(-50%) scale(0.9);
+      background: var(--bg-card);
+      color: var(--success);
+      font-size: 0.7rem;
+      padding: 3px 8px;
+      border-radius: 6px;
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.2s;
+    }
+    .copy-tooltip.show {
+      opacity: 1;
+      transform: translateX(-50%) scale(1);
+    }
+
+    /* === NAME INPUT MODAL === */
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 100;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+    }
+    .modal-overlay.hidden { display: none; }
+    .modal {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 2rem;
+      width: 100%;
+      max-width: 360px;
+      text-align: center;
+    }
+    .modal h2 {
+      font-family: var(--font-display);
+      font-size: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+    .modal p {
+      color: var(--text-dim);
+      font-size: 0.9rem;
+      margin-bottom: 1.5rem;
+    }
+    .modal .input { width: 100%; margin-bottom: 1rem; }
+    .modal .btn { width: 100%; }
+
+    /* === FULLSCREEN === */
+    .screen-area.fullscreen {
+      position: fixed; inset: 0; z-index: 50;
+    }
+
+    /* === RESPONSIVE === */
+    @media (max-width: 768px) {
+      .sidebar { width: 100%; max-height: 40vh; border-left: none; border-top: 1px solid var(--border); }
+      .theater { flex-direction: column; }
+      .webcam-box { aspect-ratio: 16/9; }
+      .logo { font-size: 2.5rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="ambient"></div>
+
+  <div class="app">
+    <!-- LANDING -->
+    <div class="landing" id="landing">
+      <div class="logo">CineSync</div>
+      <p class="tagline">Ваш спільний кінозал на двох</p>
+
+      <div class="landing-actions">
+        <button class="btn btn-primary" onclick="createRoom()">
+          🎬 Створити кімнату
+        </button>
+
+        <div class="divider">або приєднатись</div>
+
+        <div class="input-group">
+          <input class="input" id="joinInput" placeholder="Вставте посилання або код кімнати" />
+          <button class="btn btn-secondary" onclick="joinFromInput()">→</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- NAME MODAL -->
+    <div class="modal-overlay hidden" id="nameModal">
+      <div class="modal">
+        <h2>Як тебе звати?</h2>
+        <p>Це ім'я побачить твоя половинка</p>
+        <input class="input" id="nameInput" placeholder="Твоє ім'я" maxlength="20"
+               onkeydown="if(event.key==='Enter')confirmName()" />
+        <button class="btn btn-primary" onclick="confirmName()">Увійти в кімнату 💜</button>
+      </div>
+    </div>
+
+    <!-- ROOM -->
+    <div class="room" id="room">
+      <div class="topbar">
+        <div class="topbar-left">
+          <span class="topbar-logo">CineSync</span>
+          <span class="room-badge" id="roomBadge"></span>
+        </div>
+        <div class="topbar-actions">
+          <div class="copy-wrap">
+            <button class="btn-icon" onclick="copyLink()" title="Копіювати посилання">🔗</button>
+            <span class="copy-tooltip" id="copyTooltip">Скопійовано!</span>
+          </div>
+          <button class="btn-icon danger" onclick="leaveRoom()" title="Вийти">✕</button>
+        </div>
+      </div>
+
+      <div class="theater">
+        <!-- Screen sharing / movie -->
+        <div class="screen-area" id="screenArea">
+          <div class="screen-placeholder" id="screenPlaceholder">
+            <div class="screen-placeholder-icon">🖥</div>
+            <p id="screenPlaceholderText">Натисни "Транслювати екран" щоб почати</p>
+            <button class="btn btn-primary" id="startScreenBtn" onclick="toggleScreenShare()" style="display:none;">
+              🖥 Транслювати екран
+            </button>
+          </div>
+          <video id="screenVideo" autoplay playsinline style="display:none;"></video>
+        </div>
+
+        <!-- Sidebar: webcams + chat -->
+        <div class="sidebar">
+          <div class="webcams">
+            <div class="webcam-box" id="localWebcamBox">
+              <video id="localWebcam" autoplay muted playsinline style="display:none;"></video>
+              <div class="webcam-placeholder" id="localCamPlaceholder">
+                <span>📷</span>
+                <span>Твоя камера</span>
+              </div>
+              <span class="webcam-label" id="localLabel">Ти</span>
+            </div>
+            <div class="webcam-box" id="remoteWebcamBox">
+              <video id="remoteWebcam" autoplay playsinline style="display:none;"></video>
+              <div class="webcam-placeholder" id="remoteCamPlaceholder">
+                <span>💜</span>
+                <span>Очікування...</span>
+              </div>
+              <span class="webcam-label" id="remoteLabel">Партнер</span>
+            </div>
+          </div>
+
+          <div class="chat-area">
+            <div class="chat-header">Чат</div>
+            <div class="chat-messages" id="chatMessages"></div>
+            <div class="chat-input-area">
+              <input class="chat-input" id="chatInput" placeholder="Напиши щось..."
+                     onkeydown="if(event.key==='Enter')sendChat()" />
+              <button class="chat-send" onclick="sendChat()">➤</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <button class="btn-icon" id="camToggle" onclick="toggleCamera()" title="Камера">📷</button>
+        <button class="btn-icon" id="micToggle" onclick="toggleMic()" title="Мікрофон">🎙</button>
+        <button class="btn-icon" id="screenToggle" onclick="toggleScreenShare()" title="Транслювати екран">🖥</button>
+        <button class="btn-icon" onclick="toggleFullscreen()" title="Повний екран">⛶</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // ========================
+    // STATE
+    // ========================
+    let ws = null;
+    let pc = null;
+    let localStream = null;      // webcam + mic
+    let screenStream = null;     // screen capture
+    let currentRoom = null;
+    let myRole = null;
+    let myName = '';
+    let pendingRole = null;
+    let pendingRoom = null;
+    let cameraOn = true;
+    let micOn = true;
+    let screenOn = false;
+
+    // ICE servers (STUN for NAT traversal)
+    const iceServers = [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' },
+    ];
+
+    // ========================
+    // ROOM MANAGEMENT
+    // ========================
+    function checkUrlForRoom() {
+      const match = window.location.pathname.match(/\/room\/([a-z0-9-]+)/i);
+      if (match) {
+        pendingRoom = match[1];
+        pendingRole = 'guest';
+        showNameModal();
+      }
+    }
+
+    async function createRoom() {
+      try {
+        const res = await fetch('/api/create-room');
+        const { roomId } = await res.json();
+        pendingRoom = roomId;
+        pendingRole = 'host';
+        showNameModal();
+      } catch (e) {
+        showToast('Не вдалось створити кімнату');
+      }
+    }
+
+    function joinFromInput() {
+      const val = document.getElementById('joinInput').value.trim();
+      if (!val) return;
+      // Extract room ID from URL or raw text
+      const match = val.match(/\/room\/([a-z0-9-]+)/i) || [null, val];
+      pendingRoom = match[1];
+      pendingRole = 'guest';
+      showNameModal();
+    }
+
+    function showNameModal() {
+      document.getElementById('nameModal').classList.remove('hidden');
+      setTimeout(() => document.getElementById('nameInput').focus(), 100);
+    }
+
+    function confirmName() {
+      myName = document.getElementById('nameInput').value.trim() || (pendingRole === 'host' ? '💜' : '❤️');
+      document.getElementById('nameModal').classList.add('hidden');
+      enterRoom(pendingRoom, pendingRole);
+    }
+
+    async function enterRoom(roomId, role) {
+      currentRoom = roomId;
+      myRole = role;
+
+      // Update URL
+      window.history.pushState({}, '', `/room/${roomId}`);
+
+      // Update UI
+      document.getElementById('landing').classList.add('hidden');
+      document.getElementById('room').classList.add('active');
+      document.getElementById('roomBadge').innerHTML =
+        `<span class="status-dot"></span>Кімната: ${roomId}`;
+      document.getElementById('localLabel').textContent = myName;
+
+      // Show screen share button for host
+      if (role === 'host') {
+        document.getElementById('startScreenBtn').style.display = '';
+        document.getElementById('screenPlaceholderText').textContent = 'Натисни "Транслювати екран" щоб почати';
+      } else {
+        document.getElementById('startScreenBtn').style.display = 'none';
+        document.getElementById('screenPlaceholderText').textContent = 'Очікування трансляції екрану...';
+      }
+
+      // Get webcam
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        const localVid = document.getElementById('localWebcam');
+        localVid.srcObject = localStream;
+        localVid.style.display = 'block';
+        document.getElementById('localCamPlaceholder').style.display = 'none';
+      } catch (e) {
+        console.warn('No camera access:', e);
+        showToast('Не вдалось отримати доступ до камери');
+      }
+
+      // Connect WebSocket
+      connectWebSocket(roomId, role);
+      addSystemChat('Ти приєднався до кімнати');
+    }
+
+    // ========================
+    // WEBSOCKET
+    // ========================
+    function connectWebSocket(roomId, role) {
+      const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      ws = new WebSocket(`${proto}//${location.host}`);
+
+      ws.onopen = () => {
+        ws.send(JSON.stringify({ type: 'join-room', roomId, role, name: myName }));
+      };
+
+      ws.onmessage = async (ev) => {
+        const msg = JSON.parse(ev.data);
+
+        switch (msg.type) {
+          case 'joined':
+            console.log('Joined as', msg.role);
+            break;
+
+          case 'peer-joined':
+            document.getElementById('remoteLabel').textContent = msg.peerName;
+            addSystemChat(`${msg.peerName} приєднався 💜`);
+            // If we're host (or have any stream), create offer
+            await createPeerConnection();
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            ws.send(JSON.stringify({ type: 'offer', sdp: offer.sdp }));
+            break;
+
+          case 'offer':
+            await createPeerConnection();
+            await pc.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: msg.sdp }));
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+            ws.send(JSON.stringify({ type: 'answer', sdp: answer.sdp }));
+            break;
+
+          case 'answer':
+            if (pc) {
+              await pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: msg.sdp }));
+            }
+            break;
+
+          case 'ice-candidate':
+            if (pc && msg.candidate) {
+              try {
+                await pc.addIceCandidate(new RTCIceCandidate(msg));
+              } catch (e) { console.warn('ICE error:', e); }
+            }
+            break;
+
+          case 'chat':
+            addChat(msg.from, msg.message, false);
+            break;
+
+          case 'peer-left':
+            addSystemChat(`${msg.peerRole === 'host' ? 'Хост' : 'Гість'} вийшов`);
+            // Clean up remote video
+            document.getElementById('remoteWebcam').srcObject = null;
+            document.getElementById('remoteWebcam').style.display = 'none';
+            document.getElementById('remoteCamPlaceholder').style.display = '';
+            if (myRole !== 'host') {
+              document.getElementById('screenVideo').srcObject = null;
+              document.getElementById('screenVideo').style.display = 'none';
+              document.getElementById('screenPlaceholder').style.display = '';
+            }
+            if (pc) { pc.close(); pc = null; }
+            break;
+
+          case 'error':
+            showToast(msg.message);
+            break;
+        }
+      };
+
+      ws.onclose = () => {
+        console.log('WS disconnected');
+      };
+    }
+
+    // ========================
+    // WEBRTC
+    // ========================
+    async function createPeerConnection() {
+      if (pc) { pc.close(); }
+
+      pc = new RTCPeerConnection({ iceServers });
+
+      // Add local webcam tracks
+      if (localStream) {
+        localStream.getTracks().forEach(track => {
+          pc.addTrack(track, localStream);
+        });
+      }
+
+      // Add screen share tracks if active
+      if (screenStream) {
+        screenStream.getTracks().forEach(track => {
+          pc.addTrack(track, screenStream);
+        });
+      }
+
+      // ICE candidates
+      pc.onicecandidate = (event) => {
+        if (event.candidate && ws?.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({
+            type: 'ice-candidate',
+            candidate: event.candidate.candidate,
+            sdpMLineIndex: event.candidate.sdpMLineIndex,
+            sdpMid: event.candidate.sdpMid
+          }));
+        }
+      };
+
+      // Receive remote tracks
+      pc.ontrack = (event) => {
+        const stream = event.streams[0];
+        if (!stream) return;
+
+        const track = event.track;
+
+        // Determine if this is screen share or webcam
+        // Screen share streams have a video track from getDisplayMedia
+        // We differentiate by checking if we already have a webcam stream assigned
+        const remoteWebcam = document.getElementById('remoteWebcam');
+        const screenVideo = document.getElementById('screenVideo');
+
+        if (track.kind === 'video') {
+          // First video stream = webcam, second = screen (or vice versa)
+          // We use stream IDs to differentiate
+          if (!remoteWebcam.srcObject || remoteWebcam.srcObject.id === stream.id) {
+            // This is the webcam stream
+            remoteWebcam.srcObject = stream;
+            remoteWebcam.style.display = 'block';
+            document.getElementById('remoteCamPlaceholder').style.display = 'none';
+          } else {
+            // This is a different stream — screen share
+            screenVideo.srcObject = stream;
+            screenVideo.style.display = 'block';
+            document.getElementById('screenPlaceholder').style.display = 'none';
+          }
+        }
+
+        if (track.kind === 'audio' && remoteWebcam.srcObject?.id === stream.id) {
+          // Audio comes with webcam stream — already handled
+        }
+      };
+
+      pc.onconnectionstatechange = () => {
+        console.log('Connection state:', pc.connectionState);
+      };
+    }
+
+    // ========================
+    // SCREEN SHARING
+    // ========================
+    async function toggleScreenShare() {
+      if (screenOn) {
+        // Stop screen sharing
+        if (screenStream) {
+          screenStream.getTracks().forEach(t => t.stop());
+          screenStream = null;
+        }
+        screenOn = false;
+        document.getElementById('screenToggle').classList.remove('active');
+        document.getElementById('screenVideo').style.display = 'none';
+        document.getElementById('screenVideo').srcObject = null;
+        document.getElementById('screenPlaceholder').style.display = '';
+        // Renegotiate
+        if (pc && ws?.readyState === WebSocket.OPEN) {
+          await renegotiate();
+        }
+        return;
+      }
+
+      try {
+        screenStream = await navigator.mediaDevices.getDisplayMedia({
+          video: {
+            cursor: 'always',
+            displaySurface: 'monitor'
+          },
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true
+          }
+        });
+
+        screenOn = true;
+        document.getElementById('screenToggle').classList.add('active');
+
+        // Show locally for host
+        const screenVideo = document.getElementById('screenVideo');
+        screenVideo.srcObject = screenStream;
+        screenVideo.style.display = 'block';
+        document.getElementById('screenPlaceholder').style.display = 'none';
+
+        // Handle stream end (user clicks "Stop sharing" in browser)
+        screenStream.getVideoTracks()[0].onended = () => {
+          toggleScreenShare();
+        };
+
+        // Renegotiate to add screen tracks
+        if (pc && ws?.readyState === WebSocket.OPEN) {
+          await renegotiate();
+        }
+      } catch (e) {
+        console.warn('Screen share cancelled:', e);
+      }
+    }
+
+    async function renegotiate() {
+      // Recreate peer connection with updated tracks
+      await createPeerConnection();
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      ws.send(JSON.stringify({ type: 'offer', sdp: offer.sdp }));
+    }
+
+    // ========================
+    // CAMERA / MIC CONTROLS
+    // ========================
+    function toggleCamera() {
+      if (!localStream) return;
+      const videoTrack = localStream.getVideoTracks()[0];
+      if (videoTrack) {
+        cameraOn = !cameraOn;
+        videoTrack.enabled = cameraOn;
+        document.getElementById('camToggle').classList.toggle('active', !cameraOn);
+        document.getElementById('camToggle').textContent = cameraOn ? '📷' : '🚫';
+      }
+    }
+
+    function toggleMic() {
+      if (!localStream) return;
+      const audioTrack = localStream.getAudioTracks()[0];
+      if (audioTrack) {
+        micOn = !micOn;
+        audioTrack.enabled = micOn;
+        document.getElementById('micToggle').classList.toggle('active', !micOn);
+        document.getElementById('micToggle').textContent = micOn ? '🎙' : '🔇';
+      }
+    }
+
+    function toggleFullscreen() {
+      const el = document.getElementById('screenArea');
+      if (!document.fullscreenElement) {
+        el.requestFullscreen();
+      } else {
+        document.exitFullscreen();
+      }
+    }
+
+    // ========================
+    // CHAT
+    // ========================
+    function sendChat() {
+      const input = document.getElementById('chatInput');
+      const msg = input.value.trim();
+      if (!msg || !ws) return;
+      ws.send(JSON.stringify({ type: 'chat', message: msg }));
+      addChat(myName, msg, true);
+      input.value = '';
+    }
+
+    function addChat(from, message, isMine) {
+      const div = document.createElement('div');
+      div.className = `chat-msg ${isMine ? 'mine' : 'theirs'}`;
+      div.textContent = message;
+      document.getElementById('chatMessages').appendChild(div);
+      div.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function addSystemChat(text) {
+      const div = document.createElement('div');
+      div.className = 'chat-msg system';
+      div.textContent = text;
+      document.getElementById('chatMessages').appendChild(div);
+      div.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // ========================
+    // UTILITIES
+    // ========================
+    function copyLink() {
+      const url = `${location.origin}/room/${currentRoom}`;
+      navigator.clipboard.writeText(url).then(() => {
+        const tip = document.getElementById('copyTooltip');
+        tip.classList.add('show');
+        setTimeout(() => tip.classList.remove('show'), 1500);
+      });
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.classList.add('visible');
+      setTimeout(() => toast.classList.remove('visible'), 3000);
+    }
+
+    function leaveRoom() {
+      if (ws) ws.close();
+      if (pc) pc.close();
+      if (localStream) localStream.getTracks().forEach(t => t.stop());
+      if (screenStream) screenStream.getTracks().forEach(t => t.stop());
+      window.location.href = '/';
+    }
+
+    // Init
+    checkUrlForRoom();
+  </script>
+</body>
+</html>
