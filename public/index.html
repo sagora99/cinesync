@@ -745,7 +745,10 @@
     // ROOM MANAGEMENT
     // ========================
     function checkUrlForRoom() {
-      const match = window.location.pathname.match(/\/room\/([a-z0-9-]+)/i);
+      // Підтримуємо і hash (#room/xxxx) і pathname (/room/xxxx)
+      const hashMatch = window.location.hash.match(/room\/([a-z0-9-]+)/i);
+      const pathMatch = window.location.pathname.match(/\/room\/([a-z0-9-]+)/i);
+      const match = hashMatch || pathMatch;
       if (match) {
         pendingRoom = match[1];
         pendingRole = 'guest';
@@ -790,8 +793,8 @@
       currentRoom = roomId;
       myRole = role;
 
-      // Update URL
-      window.history.pushState({}, '', `/room/${roomId}`);
+      // Використовуємо hash щоб не викидало з PWA на iOS
+      window.location.hash = `room/${roomId}`;
 
       // Update UI
       document.getElementById('landing').classList.add('hidden');
@@ -1147,7 +1150,7 @@
     // UTILITIES
     // ========================
     function copyLink() {
-      const url = `${location.origin}/room/${currentRoom}`;
+      const url = `${location.origin}/#room/${currentRoom}`;
       navigator.clipboard.writeText(url).then(() => {
         const tip = document.getElementById('copyTooltip');
         tip.classList.add('show');
@@ -1167,7 +1170,8 @@
       if (pc) pc.close();
       if (localStream) localStream.getTracks().forEach(t => t.stop());
       if (screenStream) screenStream.getTracks().forEach(t => t.stop());
-      window.location.href = '/';
+      window.location.hash = '';
+      window.location.reload();
     }
 
     // Init
