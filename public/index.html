@@ -531,8 +531,8 @@
       /* Театр — колонка: екран зверху, сайдбар знизу */
       .theater { flex-direction: column; }
 
-      /* Екран займає більше місця */
-      .screen-area { flex: 1 1 auto; min-height: 0; }
+      /* Екран — трохи менше місця */
+      .screen-area { flex: 0 1 45vh; min-height: 0; }
 
       /* Сайдбар знизу — фіксована висота */
       .sidebar {
@@ -551,8 +551,8 @@
       }
       .webcam-box {
         flex: 1;
-        aspect-ratio: 4/3;
-        height: 90px;
+        aspect-ratio: unset;
+        height: 180px;
       }
 
       /* Чат займає залишок простору під камерами */
