@@ -831,15 +831,34 @@
     // ========================
     // ROOM MANAGEMENT
     // ========================
+    function saveSession(roomId, role, name) {
+      localStorage.setItem('myukino_session', JSON.stringify({ roomId, role, name }));
+    }
+
+    function loadSession(roomId) {
+      try {
+        const s = JSON.parse(localStorage.getItem('myukino_session'));
+        if (s && s.roomId === roomId) return s;
+      } catch(e) {}
+      return null;
+    }
+
     function checkUrlForRoom() {
-      // Підтримуємо і hash (#room/xxxx) і pathname (/room/xxxx)
       const hashMatch = window.location.hash.match(/room\/([a-z0-9-]+)/i);
       const pathMatch = window.location.pathname.match(/\/room\/([a-z0-9-]+)/i);
       const match = hashMatch || pathMatch;
       if (match) {
-        pendingRoom = match[1];
-        pendingRole = 'guest';
-        showNameModal();
+        const roomId = match[1];
+        const saved = loadSession(roomId);
+        if (saved) {
+          // Відновлюємо без модалки
+          myName = saved.name;
+          enterRoom(roomId, saved.role);
+        } else {
+          pendingRoom = roomId;
+          pendingRole = 'guest';
+          showNameModal();
+        }
       }
     }
 
@@ -880,7 +899,9 @@
       currentRoom = roomId;
       myRole = role;
 
-      // Використовуємо hash щоб не викидало з PWA на iOS
+      // Зберігаємо сесію — щоб після перезавантаження зайти з тим самим правом
+      saveSession(roomId, role, myName);
+
       window.location.hash = `room/${roomId}`;
 
       // Update UI
@@ -1278,6 +1299,7 @@
       if (pc) pc.close();
       if (localStream) localStream.getTracks().forEach(t => t.stop());
       if (screenStream) screenStream.getTracks().forEach(t => t.stop());
+      localStorage.removeItem('myukino_session');
       window.location.hash = '';
       window.location.reload();
     }
