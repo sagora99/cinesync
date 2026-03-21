@@ -526,10 +526,43 @@
 
     /* === RESPONSIVE (portrait mobile) === */
     @media (max-width: 768px) and (orientation: portrait) {
-      .sidebar { width: 100%; max-height: 40vh; border-left: none; border-top: 1px solid var(--border); }
-      .theater { flex-direction: column; }
-      .webcam-box { aspect-ratio: 16/9; }
       .logo { font-size: 2.5rem; }
+
+      /* Театр — колонка: екран зверху, сайдбар знизу */
+      .theater { flex-direction: column; }
+
+      /* Екран займає більше місця */
+      .screen-area { flex: 1 1 auto; min-height: 0; }
+
+      /* Сайдбар знизу — фіксована висота */
+      .sidebar {
+        width: 100%;
+        flex: 0 0 auto;
+        border-left: none;
+        border-top: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* Камери — горизонтально поряд */
+      .webcams {
+        flex-direction: row;
+        gap: 2px;
+      }
+      .webcam-box {
+        flex: 1;
+        aspect-ratio: 4/3;
+        height: 90px;
+      }
+
+      /* Чат займає залишок простору під камерами */
+      .chat-area {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+      }
+      .chat-messages { flex: 1; overflow-y: auto; }
     }
 
     /* === VOLUME CONTROL === */
