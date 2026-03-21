@@ -565,6 +565,82 @@
       .chat-messages { flex: 1; overflow-y: auto; }
     }
 
+    /* === GAME === */
+    .game-overlay {
+      position: fixed; inset: 0; z-index: 200;
+      background: rgba(0,0,0,0.88);
+      backdrop-filter: blur(14px);
+      display: flex; align-items: center; justify-content: center;
+      padding: 1.5rem;
+    }
+    .game-overlay.hidden { display: none; }
+    .game-panel {
+      background: var(--bg-surface);
+      border: 1px solid rgba(232,67,147,0.25);
+      border-radius: 24px;
+      padding: 1.75rem;
+      width: 100%; max-width: 360px;
+      text-align: center;
+      box-shadow: 0 0 60px rgba(232,67,147,0.12);
+    }
+    .game-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 1.25rem;
+      font-size: 0.8rem; color: var(--text-dim);
+    }
+    .game-scores {
+      display: flex; align-items: center; gap: 0.5rem;
+      font-size: 1rem; font-weight: 600; color: var(--text);
+    }
+    .game-label {
+      font-size: 0.78rem; color: var(--text-muted);
+      letter-spacing: 0.06em; text-transform: uppercase;
+      margin-bottom: 0.5rem;
+    }
+    .game-number {
+      font-family: var(--font-display);
+      font-size: 5.5rem; font-weight: 700; line-height: 1;
+      background: linear-gradient(135deg, var(--text), var(--accent));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 0.25rem;
+    }
+    .game-result {
+      font-size: 1.6rem; font-weight: 700; min-height: 2.2rem;
+      color: var(--success); transition: all 0.4s;
+    }
+    .game-buttons {
+      display: flex; gap: 0.75rem;
+      margin: 1.25rem 0 0.75rem;
+    }
+    .game-btn {
+      flex: 1; font-family: var(--font-body);
+      font-size: 1.05rem; font-weight: 600;
+      padding: 0.85rem; border: none; border-radius: 14px;
+      cursor: pointer; transition: all 0.18s;
+    }
+    .game-btn.up {
+      background: rgba(0,214,143,0.12); color: var(--success);
+      border: 1px solid rgba(0,214,143,0.3);
+    }
+    .game-btn.down {
+      background: rgba(232,67,147,0.12); color: var(--accent);
+      border: 1px solid rgba(232,67,147,0.3);
+    }
+    .game-btn.up:hover { background: rgba(0,214,143,0.22); }
+    .game-btn.down:hover { background: rgba(232,67,147,0.22); }
+    .game-btn.selected { transform: scale(1.05); opacity: 1 !important; }
+    .game-btn.disabled { pointer-events: none; opacity: 0.4; }
+    .game-btn.selected.up { background: rgba(0,214,143,0.3); }
+    .game-btn.selected.down { background: rgba(232,67,147,0.3); }
+    .game-btn.solo {
+      background: var(--bg-card); color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .game-status {
+      font-size: 0.9rem; color: var(--text-dim); min-height: 1.4rem;
+    }
+
     /* === VOLUME CONTROL === */
     .volume-control {
       position: absolute;
@@ -794,8 +870,32 @@
         <button class="btn-icon" id="camToggle" onclick="toggleCamera()" title="Камера">📷</button>
         <button class="btn-icon" id="micToggle" onclick="toggleMic()" title="Мікрофон">🎙</button>
         <button class="btn-icon" id="screenToggle" onclick="toggleScreenShare()" title="Транслювати екран">🖥</button>
+        <button class="btn-icon" id="gameToggle" onclick="toggleGame()" title="Гра">🎯</button>
         <button class="btn-icon" onclick="toggleFullscreen()" title="Повний екран">⛶</button>
       </div>
+    </div>
+  </div>
+
+  <!-- GAME OVERLAY -->
+  <div class="game-overlay hidden" id="gameOverlay">
+    <div class="game-panel">
+      <div class="game-header">
+        <span>Раунд <span id="gameRound">1</span>/10</span>
+        <div class="game-scores">
+          <span id="myScoreEl">💜 0</span>
+          <span style="color:var(--text-muted)">—</span>
+          <span id="peerScoreEl">❤️ 0</span>
+        </div>
+        <button class="btn-icon" onclick="endGame()" style="width:32px;height:32px;font-size:0.85rem;">✕</button>
+      </div>
+      <div class="game-label">Наступне число буде...</div>
+      <div class="game-number" id="gameNumber">—</div>
+      <div class="game-result" id="gameResult"></div>
+      <div class="game-buttons" id="gameButtons">
+        <button class="game-btn up" data-guess="higher" onclick="makeGuess('higher')">↑ Вище</button>
+        <button class="game-btn down" data-guess="lower" onclick="makeGuess('lower')">↓ Нижче</button>
+      </div>
+      <div class="game-status" id="gameStatus">Чекаємо на початок...</div>
     </div>
   </div>
 
@@ -1022,6 +1122,10 @@
 
           case 'error':
             showToast(msg.message);
+            break;
+
+          default:
+            if (msg.type && msg.type.startsWith('game-')) handleGameMessage(msg);
             break;
         }
       };
@@ -1302,6 +1406,197 @@
       localStorage.removeItem('myukino_session');
       window.location.hash = '';
       window.location.reload();
+    }
+
+    // ========================
+    // GAME — Вищий чи нижчий
+    // ========================
+    let gameActive = false;
+    let gameRound = 0;
+    let myScore = 0;
+    let peerScore = 0;
+    let myGuess = null;
+    let peerGuess = null;
+    let currentNumber = null;
+
+    function toggleGame() {
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        showToast('Спочатку підключись до кімнати');
+        return;
+      }
+      if (gameActive) { endGame(); return; }
+      openGameOverlay();
+      ws.send(JSON.stringify({ type: 'game-start' }));
+      if (myRole === 'host') gameNextRound();
+    }
+
+    function openGameOverlay() {
+      gameActive = true;
+      gameRound = 0; myScore = 0; peerScore = 0;
+      document.getElementById('gameOverlay').classList.remove('hidden');
+      document.getElementById('gameToggle').classList.add('active');
+      gameSetStatus('Чекаємо на число...');
+      gameSetButtons('guess');
+    }
+
+    function gameNextRound() {
+      gameRound++;
+      myGuess = null; peerGuess = null;
+      const num = Math.floor(Math.random() * 99) + 1;
+      currentNumber = num;
+      ws.send(JSON.stringify({ type: 'game-number', number: num, round: gameRound }));
+      gameShowNumber(num, gameRound);
+    }
+
+    function gameShowNumber(num, round) {
+      document.getElementById('gameRound').textContent = round;
+      document.getElementById('gameNumber').textContent = num;
+      document.getElementById('gameResult').textContent = '';
+      gameUpdateScores();
+      gameSetButtons('guess');
+      gameSetStatus('');
+    }
+
+    function makeGuess(guess) {
+      if (myGuess) return;
+      myGuess = guess;
+      document.querySelectorAll('#gameButtons .game-btn').forEach(b => {
+        b.classList.toggle('selected', b.dataset.guess === guess);
+        b.classList.add('disabled');
+      });
+      gameSetStatus('Очікуємо відповідь партнера...');
+      ws.send(JSON.stringify({ type: 'game-guess', guess }));
+      gameCheckBoth();
+    }
+
+    function gameCheckBoth() {
+      if (!myGuess || !peerGuess) return;
+      if (myRole === 'host') setTimeout(gameReveal, 600);
+    }
+
+    function gameReveal() {
+      const next = Math.floor(Math.random() * 99) + 1;
+      const correct = next > currentNumber ? 'higher' : next < currentNumber ? 'lower' : 'equal';
+      ws.send(JSON.stringify({ type: 'game-reveal', next, correct }));
+      gameShowReveal(next, correct);
+    }
+
+    function gameShowReveal(next, correct) {
+      document.getElementById('gameResult').textContent = `→ ${next}`;
+      const iWon  = myGuess === correct || correct === 'equal';
+      const sheWon = peerGuess === correct || correct === 'equal';
+      if (iWon)  myScore++;
+      if (sheWon) peerScore++;
+      gameUpdateScores();
+      gameSetButtons('none');
+
+      let msg = '';
+      if (correct === 'equal')         msg = 'Рівно! Обидва очко 🤝';
+      else if (iWon && sheWon)         msg = 'Обидва вгадали! 🎉';
+      else if (iWon)                   msg = 'Ти вгадав! 💜';
+      else if (sheWon)                 msg = 'Вона вгадала! ❤️';
+      else                             msg = 'Обидва промахнулись 😅';
+      gameSetStatus(msg);
+
+      currentNumber = next;
+      if (gameRound < 10) {
+        setTimeout(() => { if (gameActive && myRole === 'host') gameNextRound(); }, 2800);
+      } else {
+        setTimeout(gameFinish, 2800);
+      }
+    }
+
+    function gameFinish() {
+      document.getElementById('gameNumber').textContent = '🏆';
+      document.getElementById('gameResult').textContent = '';
+      const iSymbol   = myRole === 'host' ? '💜' : '❤️';
+      const herSymbol = myRole === 'host' ? '❤️' : '💜';
+      let msg = '';
+      if (myScore > peerScore)       msg = `Ти виграв! ${iSymbol} ${myScore}–${peerScore} ${herSymbol}`;
+      else if (peerScore > myScore)  msg = `Вона виграла! ${herSymbol} ${peerScore}–${myScore} ${iSymbol}`;
+      else                           msg = `Нічия! ${myScore}–${peerScore} 🤝`;
+      gameSetStatus(msg);
+      gameSetButtons('restart');
+    }
+
+    function gameRestart() {
+      myScore = 0; peerScore = 0; gameRound = 0;
+      myGuess = null; peerGuess = null;
+      gameSetStatus('Чекаємо на число...');
+      gameSetButtons('guess');
+      document.getElementById('gameResult').textContent = '';
+      document.getElementById('gameNumber').textContent = '—';
+      gameUpdateScores();
+      ws.send(JSON.stringify({ type: 'game-restart' }));
+      if (myRole === 'host') gameNextRound();
+    }
+
+    function endGame() {
+      gameActive = false;
+      document.getElementById('gameOverlay').classList.add('hidden');
+      document.getElementById('gameToggle').classList.remove('active');
+      ws.send(JSON.stringify({ type: 'game-end' }));
+    }
+
+    function gameUpdateScores() {
+      const iS   = myRole === 'host' ? '💜' : '❤️';
+      const herS  = myRole === 'host' ? '❤️' : '💜';
+      document.getElementById('myScoreEl').textContent  = `${iS} ${myScore}`;
+      document.getElementById('peerScoreEl').textContent = `${herS} ${peerScore}`;
+    }
+
+    function gameSetStatus(text) {
+      document.getElementById('gameStatus').textContent = text;
+    }
+
+    function gameSetButtons(mode) {
+      const el = document.getElementById('gameButtons');
+      if (mode === 'guess') {
+        el.innerHTML = `
+          <button class="game-btn up" data-guess="higher" onclick="makeGuess('higher')">↑ Вище</button>
+          <button class="game-btn down" data-guess="lower" onclick="makeGuess('lower')">↓ Нижче</button>`;
+      } else if (mode === 'restart') {
+        el.innerHTML = `<button class="game-btn solo" onclick="gameRestart()">Ще раз 🎮</button>`;
+      } else {
+        el.innerHTML = '';
+      }
+    }
+
+    // WS-обробники гри — додаються в switch в connectWebSocket
+    // (реалізовано нижче через функцію)
+    function handleGameMessage(msg) {
+      switch (msg.type) {
+        case 'game-start':
+          openGameOverlay();
+          break;
+        case 'game-number':
+          currentNumber = msg.number;
+          myGuess = null; peerGuess = null;
+          gameShowNumber(msg.number, msg.round);
+          break;
+        case 'game-guess':
+          peerGuess = msg.guess;
+          gameCheckBoth();
+          if (myGuess) gameSetStatus('Обидва вибрали, розкриваємо...');
+          break;
+        case 'game-reveal':
+          gameShowReveal(msg.next, msg.correct);
+          break;
+        case 'game-restart':
+          myScore = 0; peerScore = 0; gameRound = 0;
+          myGuess = null; peerGuess = null;
+          gameSetStatus('Чекаємо на число...');
+          gameSetButtons('guess');
+          document.getElementById('gameResult').textContent = '';
+          document.getElementById('gameNumber').textContent = '—';
+          gameUpdateScores();
+          break;
+        case 'game-end':
+          gameActive = false;
+          document.getElementById('gameOverlay').classList.add('hidden');
+          document.getElementById('gameToggle').classList.remove('active');
+          break;
+      }
     }
 
     // Init
