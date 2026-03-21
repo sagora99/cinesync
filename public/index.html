@@ -532,6 +532,43 @@
       .logo { font-size: 2.5rem; }
     }
 
+    /* === VOLUME CONTROL === */
+    .volume-control {
+      position: absolute;
+      bottom: 16px;
+      left: 16px;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(10px);
+      padding: 6px 12px 6px 10px;
+      border-radius: 20px;
+      font-size: 1rem;
+      opacity: 0;
+      transition: opacity 0.25s;
+      pointer-events: none;
+    }
+    .screen-area:hover .volume-control,
+    .volume-control:hover,
+    .volume-control:focus-within { opacity: 1; pointer-events: auto; }
+    @media (hover: none) { .volume-control { opacity: 0.9; pointer-events: auto; } }
+    #volumeSlider {
+      -webkit-appearance: none;
+      width: 80px; height: 4px;
+      border-radius: 2px;
+      background: rgba(255,255,255,0.3);
+      outline: none; cursor: pointer;
+    }
+    #volumeSlider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+    }
+
     /* === LANDSCAPE MOBILE — повний екран з вебками в куті === */
     @media (orientation: landscape) and (max-height: 600px) {
       .room.active {
@@ -673,6 +710,11 @@
             </button>
           </div>
           <video id="screenVideo" autoplay playsinline style="display:none;"></video>
+          <div class="volume-control" id="volumeControl">
+            <span id="volIcon">🔊</span>
+            <input type="range" id="volumeSlider" min="0" max="100" value="100"
+                   oninput="onVolumeChange(this.value)" />
+          </div>
           <div id="quoteOverlay"></div>
         </div>
 
@@ -732,6 +774,7 @@
     let cameraOn = true;
     let micOn = true;
     let screenOn = false;
+    let screenSenders = [];          // RTCRtpSender для screen треків
     let remoteScreenStreamId = null; // ID stream-у екрану від хоста
 
     // ICE servers (STUN for NAT traversal)
@@ -862,7 +905,8 @@
             break;
 
           case 'offer':
-            await createPeerConnection();
+            // Пересоздаємо PC тільки якщо його ще нема (перше підключення)
+            if (!pc) await createPeerConnection();
             await pc.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: msg.sdp }));
             const answer = await pc.createAnswer();
             await pc.setLocalDescription(answer);
@@ -890,6 +934,14 @@
           case 'screen-stream':
             remoteScreenStreamId = msg.streamId || null;
             break;
+
+          case 'volume': {
+            const vol = Math.max(0, Math.min(1, Number(msg.value)));
+            document.getElementById('screenVideo').volume = vol;
+            document.getElementById('volumeSlider').value = Math.round(vol * 100);
+            document.getElementById('volIcon').textContent = vol === 0 ? '🔇' : vol < 0.5 ? '🔉' : '🔊';
+            break;
+          }
 
           case 'peer-left':
             addSystemChat(`${msg.peerRole === 'host' ? 'Хост' : 'Гість'} вийшов`);
@@ -922,19 +974,11 @@
 
       pc = new RTCPeerConnection({ iceServers });
 
-      // Add local webcam tracks
+      // Тільки webcam треки — screen додаються окремо через addTrack при старті трансляції
       if (localStream) {
-        localStream.getTracks().forEach(track => {
-          pc.addTrack(track, localStream);
-        });
+        localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
       }
-
-      // Add screen share tracks if active
-      if (screenStream) {
-        screenStream.getTracks().forEach(track => {
-          pc.addTrack(track, screenStream);
-        });
-      }
+      screenSenders = [];
 
       // ICE candidates
       pc.onicecandidate = (event) => {
@@ -972,6 +1016,13 @@
           screenVideo.style.display = 'block';
           document.getElementById('screenPlaceholder').style.display = 'none';
           screenVideo.play().catch(() => {});
+          // Якщо хост зупинив трансляцію — прибираємо відео
+          track.onended = () => {
+            screenVideo.srcObject = null;
+            screenVideo.style.display = 'none';
+            document.getElementById('screenPlaceholder').style.display = '';
+            assignedStreamIds.delete(stream.id);
+          };
         } else {
           // Це webcam (і хоста і гостя — завжди в бульбашку)
           remoteWebcam.srcObject = stream;
@@ -992,6 +1043,9 @@
       if (myRole !== 'host') return; // тільки хост
 
       if (screenOn) {
+        // Видаляємо screen треки з існуючого PC
+        screenSenders.forEach(s => { try { pc?.removeTrack(s); } catch(e) {} });
+        screenSenders = [];
         if (screenStream) {
           screenStream.getTracks().forEach(t => t.stop());
           screenStream = null;
@@ -1001,7 +1055,6 @@
         document.getElementById('screenVideo').style.display = 'none';
         document.getElementById('screenVideo').srcObject = null;
         document.getElementById('screenPlaceholder').style.display = '';
-        // Повідомляємо гостя що трансляція зупинена
         if (ws?.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ type: 'screen-stream', streamId: null }));
         }
@@ -1020,31 +1073,33 @@
         screenOn = true;
         document.getElementById('screenToggle').classList.add('active');
 
-        // Показуємо хосту локально (без звуку — щоб не чув двічі)
+        // Хост бачить локально (muted — щоб не чув двічі)
         const screenVideo = document.getElementById('screenVideo');
         screenVideo.srcObject = screenStream;
         screenVideo.muted = true;
         screenVideo.style.display = 'block';
         document.getElementById('screenPlaceholder').style.display = 'none';
 
-        // Повідомляємо гостя: ось ID stream-у екрану
+        // Спершу повідомляємо гостя stream ID — ПЕРЕД offer
         if (ws?.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ type: 'screen-stream', streamId: screenStream.id }));
         }
 
-        screenStream.getVideoTracks()[0].onended = () => toggleScreenShare();
-
-        if (pc && ws?.readyState === WebSocket.OPEN) {
-          await renegotiate();
+        // Додаємо треки до існуючого PC (не пересоздаємо)
+        if (pc) {
+          screenSenders = screenStream.getTracks().map(t => pc.addTrack(t, screenStream));
+          if (ws?.readyState === WebSocket.OPEN) await renegotiate();
         }
+
+        screenStream.getVideoTracks()[0].onended = () => { if (screenOn) toggleScreenShare(); };
       } catch (e) {
         console.warn('Screen share cancelled:', e);
+        screenOn = false;
       }
     }
 
     async function renegotiate() {
-      // Recreate peer connection with updated tracks
-      await createPeerConnection();
+      // Не пересоздаємо PC — тільки нова offer на існуючому з'єднанні
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
       ws.send(JSON.stringify({ type: 'offer', sdp: offer.sdp }));
@@ -1072,6 +1127,15 @@
         audioTrack.enabled = micOn;
         document.getElementById('micToggle').classList.toggle('active', !micOn);
         document.getElementById('micToggle').textContent = micOn ? '🎙' : '🔇';
+      }
+    }
+
+    function onVolumeChange(val) {
+      const vol = Number(val) / 100;
+      document.getElementById('screenVideo').volume = vol;
+      document.getElementById('volIcon').textContent = vol === 0 ? '🔇' : vol < 0.5 ? '🔉' : '🔊';
+      if (ws?.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'volume', value: vol }));
       }
     }
 
