@@ -531,10 +531,10 @@
       /* Театр — колонка: екран зверху, сайдбар знизу */
       .theater { flex-direction: column; }
 
-      /* Екран — трохи менше місця */
-      .screen-area { flex: 0 1 45vh; min-height: 0; }
+      /* Екран — займає вільний простір */
+      .screen-area { flex: 1 1 auto; min-height: 0; }
 
-      /* Сайдбар знизу — фіксована висота */
+      /* Сайдбар знизу — фіксована висота, не розтягується */
       .sidebar {
         width: 100%;
         flex: 0 0 auto;
@@ -548,6 +548,7 @@
       .webcams {
         flex-direction: row;
         gap: 2px;
+        flex-shrink: 0;
       }
       .webcam-box {
         flex: 1;
@@ -555,14 +556,19 @@
         height: 180px;
       }
 
-      /* Чат займає залишок простору під камерами */
+      /* Чат — фіксована висота, скролиться */
       .chat-area {
-        flex: 1;
+        flex: 0 0 110px;
         min-height: 0;
         display: flex;
         flex-direction: column;
+        overflow: hidden;
       }
-      .chat-messages { flex: 1; overflow-y: auto; }
+      .chat-messages {
+        flex: 1;
+        overflow-y: auto;
+        min-height: 0;
+      }
     }
 
     /* === VOLUME CONTROL === */
