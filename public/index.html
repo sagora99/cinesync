@@ -402,6 +402,16 @@
       max-width: 95%;
       border-radius: 12px;
     }
+    .chat-msg.quote.special {
+      background: linear-gradient(135deg, rgba(232,67,147,0.28), rgba(108,92,231,0.22));
+      border: 1.5px solid rgba(232,67,147,0.6);
+      color: var(--text);
+      font-size: 0.92rem;
+      font-style: normal;
+      font-weight: 600;
+      box-shadow: 0 0 18px rgba(232,67,147,0.18);
+      letter-spacing: 0.01em;
+    }
 
     /* Bottom controls */
     .controls {
@@ -520,6 +530,15 @@
       transition: opacity 0.8s ease;
     }
     #quoteOverlay.show { opacity: 1; }
+    #quoteOverlay.special {
+      color: #fff;
+      font-style: normal;
+      font-weight: 600;
+      font-size: 1rem;
+      background: rgba(232,67,147,0.45);
+      border: 1px solid rgba(232,67,147,0.7);
+      box-shadow: 0 0 24px rgba(232,67,147,0.3);
+    }
     @media (orientation: landscape) and (max-height: 600px) {
       #quoteOverlay { display: block; }
     }
@@ -531,8 +550,8 @@
       /* Театр — колонка: екран зверху, сайдбар знизу */
       .theater { flex-direction: column; }
 
-      /* Екран — займає вільний простір */
-      .screen-area { flex: 1 1 auto; min-height: 0; }
+      /* Екран — трохи менше щоб чат мав місце */
+      .screen-area { flex: 1 1 auto; min-height: 0; max-height: 42vh; }
 
       /* Сайдбар знизу — фіксована висота, не розтягується */
       .sidebar {
@@ -558,7 +577,7 @@
 
       /* Чат — фіксована висота, скролиться */
       .chat-area {
-        flex: 0 0 110px;
+        flex: 0 0 150px;
         min-height: 0;
         display: flex;
         flex-direction: column;
@@ -1223,25 +1242,30 @@
     // ========================
     // ЦИТАТИ
     // ========================
+    // special: true — виділена фраза з яскравим стилем
     const loveQuotes = [
-      '💜 Ти моя найкраща частина кожного дня',
-      '🐾 Дивлюсь на тебе і не можу надивитись',
-      '🌙 З тобою навіть тиша стає теплою',
-      '💜 Ти єдина, з ким я хочу дивитись фільми до ранку',
-      '🐾 Твій сміх — це мій найулюбленіший звук',
-      '✨ Я закоханий у тебе щодня по-новому',
-      '💜 Поряд з тобою мені не страшно нічого',
-      '🌙 Ти моя домашня пристань',
-      '🐾 Навіть мовчати з тобою — щастя',
-      '💜 Ти робиш моє серце м\'якшим',
-      '✨ Я думаю про тебе навіть коли дивлюсь у екран',
-      '🌙 З тобою найзвичайніший вечір стає особливим',
-      '🐾 Ти моя тепла котика 💜',
-      '💜 Кожна хвилина поряд з тобою — подарунок',
-      '✨ Ти — мій улюблений фільм, який я хочу дивитись вічно',
-      '🌙 Дякую що ти є, серйозно',
-      '🐾 Я люблю тебе більше ніж слова можуть вмістити',
-      '💜 Ти моє спокійне місце у цьому шаленому світі',
+      { text: '💜 Ти моя найкраща частина кожного дня' },
+      { text: '🐾 Дивлюсь на тебе і не можу надивитись' },
+      { text: '🌙 З тобою навіть тиша стає теплою' },
+      { text: '🐱 Мяу ❤️', special: true },
+      { text: '💜 Ти єдина, з ким я хочу дивитись фільми до ранку' },
+      { text: '🐾 Твій сміх — це мій найулюбленіший звук' },
+      { text: '✨ Я закоханий у тебе щодня по-новому' },
+      { text: '💜 Поряд з тобою мені не страшно нічого' },
+      { text: '🌙 Ти моя домашня пристань' },
+      { text: '💗 Мар\'янко я тебе кохаю!', special: true },
+      { text: '🐾 Навіть мовчати з тобою — щастя' },
+      { text: '💜 Ти робиш моє серце м\'якшим' },
+      { text: '✨ Я думаю про тебе навіть коли дивлюсь у екран' },
+      { text: '🌙 З тобою найзвичайніший вечір стає особливим' },
+      { text: '🐾 Ти моя тепла котика 💜' },
+      { text: '💜 Кожна хвилина поряд з тобою — подарунок' },
+      { text: '🐱 Мяу ❤️', special: true },
+      { text: '✨ Ти — мій улюблений фільм, який я хочу дивитись вічно' },
+      { text: '🌙 Дякую що ти є, серйозно' },
+      { text: '💗 Мар\'янко я тебе кохаю!', special: true },
+      { text: '🐾 Я люблю тебе більше ніж слова можуть вмістити' },
+      { text: '💜 Ти моє спокійне місце у цьому шаленому світі' },
     ];
 
     let quoteIndex = 0;
@@ -1254,13 +1278,13 @@
     }
 
     function addQuote() {
-      const text = loveQuotes[quoteIndex % loveQuotes.length];
+      const item = loveQuotes[quoteIndex % loveQuotes.length];
       quoteIndex++;
 
       // Sidebar (portrait)
       const div = document.createElement('div');
-      div.className = 'chat-msg quote';
-      div.textContent = text;
+      div.className = 'chat-msg quote' + (item.special ? ' special' : '');
+      div.textContent = item.text;
       document.getElementById('chatMessages').appendChild(div);
       div.scrollIntoView({ behavior: 'smooth' });
 
@@ -1268,7 +1292,8 @@
       const overlay = document.getElementById('quoteOverlay');
       overlay.classList.remove('show');
       void overlay.offsetWidth; // force reflow для анімації
-      overlay.textContent = text;
+      overlay.textContent = item.text;
+      overlay.classList.toggle('special', !!item.special);
       overlay.classList.add('show');
       clearTimeout(overlay._hideTimer);
       overlay._hideTimer = setTimeout(() => overlay.classList.remove('show'), 7000);
