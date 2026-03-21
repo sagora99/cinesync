@@ -606,17 +606,28 @@
         gap: 0.5rem;
       }
 
-      /* Сайдбар — floating в правому нижньому куті */
+      /* Відео трансляції — притиснуто до лівого краю */
+      .screen-area {
+        align-items: center;
+        justify-content: flex-start;
+      }
+      .screen-area video {
+        width: auto;
+        height: 100%;
+        max-width: 75%;
+        object-fit: contain;
+        margin-left: 0;
+      }
+
+      /* Сайдбар — бульбашки в правому нижньому куті */
       .sidebar {
         position: absolute;
         bottom: 52px;
-        right: 12px;
+        right: 10px;
         width: auto;
         max-height: none;
         background: transparent;
         border: none;
-        border-left: none;
-        border-top: none;
         z-index: 15;
         flex-shrink: 0;
       }
@@ -624,27 +635,27 @@
       /* Ховаємо чат у landscape */
       .chat-area { display: none; }
 
-      /* Вебкамери — маленькі бульбашки */
+      /* Вебкамери — більші бульбашки */
       .webcams {
         flex-direction: column;
-        gap: 6px;
+        gap: 8px;
       }
 
       .webcam-box {
-        width: 100px;
-        height: 75px;
-        border-radius: 10px;
+        width: 140px;
+        height: 105px;
+        border-radius: 12px;
         aspect-ratio: unset;
-        border: 2px solid rgba(232, 67, 147, 0.55);
-        box-shadow: 0 4px 18px rgba(0,0,0,0.65);
+        border: 2px solid rgba(232, 67, 147, 0.65);
+        box-shadow: 0 4px 20px rgba(0,0,0,0.7);
         overflow: hidden;
       }
 
       .webcam-label {
-        font-size: 0.6rem;
-        padding: 2px 5px;
-        bottom: 4px;
-        left: 4px;
+        font-size: 0.65rem;
+        padding: 2px 6px;
+        bottom: 5px;
+        left: 5px;
       }
     }
   </style>
